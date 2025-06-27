@@ -1,0 +1,264 @@
+﻿<Window x:Class="WpfApp1.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WpfApp1"
+        xmlns:oxy="http://oxyplot.org/wpf"
+        mc:Ignorable="d"
+        Title="MainWindow"
+        Height="450"
+        Width="1200"
+        KeyDown="Window_KeyDown"
+        WindowState="Maximized"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="NoResize"
+        Background="#FFFAFAFA"
+        FontFamily="Segoe UI">
+    <Window.Resources>
+        <!-- Aufnahme-Animation: Pulsierender roter Kreis -->
+        <Storyboard x:Key="RecordingPulseStoryboard" RepeatBehavior="Forever" AutoReverse="True">
+            <DoubleAnimation Storyboard.TargetName="RecordingIndicator"
+                             Storyboard.TargetProperty="Width"
+                             From="60" To="90" Duration="0:0:0.5"/>
+            <DoubleAnimation Storyboard.TargetName="RecordingIndicator"
+                             Storyboard.TargetProperty="Height"
+                             From="60" To="90" Duration="0:0:0.5"/>
+            <ColorAnimation Storyboard.TargetName="RecordingIndicatorBrush"
+                            Storyboard.TargetProperty="Color"
+                            From="Red" To="#FFFF6666" Duration="0:0:0.5"/>
+        </Storyboard>
+        <Storyboard x:Key="RecordingFadeOutStoryboard">
+            <DoubleAnimation Storyboard.TargetName="RecordingIndicator"
+                             Storyboard.TargetProperty="Opacity"
+                             To="0" Duration="0:0:0.3"/>
+        </Storyboard>
+    </Window.Resources>
+    <Grid>
+        <!-- Aufnahme-Indikator (pulsierender Kreis, standardmäßig unsichtbar) -->
+        <Ellipse x:Name="RecordingIndicator"
+                 Width="60" Height="60"
+                 Opacity="0"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 Panel.ZIndex="10">
+            <Ellipse.Fill>
+                <SolidColorBrush x:Name="RecordingIndicatorBrush" Color="Red"/>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <!-- Aufnahme-Countdown Overlay -->
+        <Grid x:Name="RecordingCountdownOverlay"
+              Visibility="Collapsed"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Width="160" Height="160"
+              Panel.ZIndex="20">
+            <!-- Halbtransparenter Hintergrund -->
+            <Ellipse Fill="#80000000" Width="160" Height="160"/>
+            <!-- Fortschrittskreis -->
+            <Grid>
+                <Ellipse Width="120" Height="120" Stroke="#22FFFFFF" StrokeThickness="12"/>
+                <Ellipse Width="120" Height="120" Stroke="#44FF0000" StrokeThickness="12"
+                         StrokeDashArray="{Binding RecordingCountdownDashArray, RelativeSource={RelativeSource AncestorType=Window}}"
+                         StrokeDashCap="Round"
+                         RenderTransformOrigin="0.5,0.5">
+                    <Ellipse.RenderTransform>
+                        <RotateTransform Angle="-90"/>
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+            </Grid>
+            <!-- Countdown-Text -->
+            <TextBlock x:Name="RecordingCountdownText"
+                       Text="2.0"
+                       FontSize="48"
+                       FontWeight="Bold"
+                       Foreground="White"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- Sample speichern Button -->
+        <Button x:Name="SaveSampleButton" Content="record Samples" Width="150" Height="36" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0" Click="SaveSampleButton_Click"/>
+
+        <!-- Select Hotkey Button oben rechts -->
+        <Button x:Name="SelectHotkeyButton" Content="Select Hotkey" Width="150" Height="36" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,10,0" Click="SelectHotkeyButton_Click"/>
+
+        <!-- Ziffern-Auswahl (jetzt dynamisch mit Sample-Anzahl) -->
+        <ItemsControl x:Name="DigitPanel"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Margin="10,50,0,0"
+                      Visibility="Collapsed">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Vertical" Margin="4,0">
+                        <Button Content="{Binding Digit}"
+                                Width="36"
+                                Height="36"
+                                Click="DigitButton_Click"
+                                Tag="{Binding Digit}"/>
+                        <TextBlock Text="{Binding SampleCount, StringFormat='Samples: {0}'}"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Sample-Liste (wird nach Ziffernwahl sichtbar) -->
+        <ListBox x:Name="SampleListBox"
+                 Width="220"
+                 Height="170"
+                 HorizontalAlignment="Left"
+                 VerticalAlignment="Top"
+                 Margin="10,320,0,0"
+                 Visibility="Collapsed"
+                 MouseDoubleClick="SampleListBox_MouseDoubleClick"
+                 SelectionChanged="SampleListBox_SelectionChanged"/>
+
+        <!-- NEU: Buttons für Sample hören/löschen -->
+        <StackPanel x:Name="SampleActionPanel"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="10,500,0,0"
+                    Visibility="Collapsed">
+            <Button x:Name="PlaySampleButton"
+                    Content="Sample hören"
+                    Width="110"
+                    Height="36"
+                    Margin="0,0,10,0"
+                    Click="PlaySampleButton_Click"/>
+            <Button x:Name="DeleteSampleButton"
+                    Content="Sample löschen"
+                    Width="110"
+                    Height="36"
+                    Click="DeleteSampleButton_Click"/>
+        </StackPanel>
+
+        <!-- Fourier-Spektrum Plot für Sample -->
+        <oxy:PlotView x:Name="SpectrumPlot"
+                      Width="400"
+                      Height="200"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Margin="250,320,0,0"
+                      Visibility="Collapsed"/>
+
+        <!-- Fourier-Spektrum Plot für letzte Aufnahme (jetzt weiter rechts) -->
+        <oxy:PlotView x:Name="LastRecordingSpectrumPlot"
+                      Width="400"
+                      Height="200"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Top"
+                      Margin="0,320,50,0"
+                      Visibility="Collapsed"/>
+
+        <!-- Zentrierte Anzeige für StandBy und Recording -->
+        <TextBlock x:Name="StatusTextBlock"
+                   Width="320"
+                   Height="70"
+                   Text="Stand by"
+                   TextAlignment="Center"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Center"
+                   FontSize="32"
+                   FontWeight="Bold"
+                   Background="White"
+                   Padding="16"
+                   Margin="0"
+                   Foreground="Green"
+                   />
+
+        <TextBlock x:Name="InfoTextBlock" HorizontalAlignment="Center" Margin="0,48,0,0" TextWrapping="Wrap" VerticalAlignment="Top" FontSize="20" FontWeight="SemiBold">
+            <Run Text="Hit Enter while saying your voice command."/>
+            <Run Language="de-de" Text="....."/>
+        </TextBlock>
+        <TextBlock HorizontalAlignment="Center" Margin="0,201,0,0" TextWrapping="Wrap" VerticalAlignment="Top" FontWeight="Bold" FontSize="18"><Run Language="de-de" Text="Last "/><Run Text="Detected command:"/></TextBlock>
+
+        <!-- Zentrale Anzeige der erkannten Zahl und Aktion -->
+        <Border Background="#FFF5F5F5" CornerRadius="12" Padding="12" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,252,0,0">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.2"/>
+            </Border.Effect>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock x:Name="InterpretedNumberTextBlock"
+                           TextWrapping="Wrap"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0">
+                    <Run Language="de-de" Text="1"/>
+                </TextBlock>
+                <TextBlock
+                    TextWrapping="Wrap"
+                    FontSize="20"
+                    FontWeight="Bold"
+                    VerticalAlignment="Center"
+                    Margin="0,0,10,0">
+                    <Run Language="de-de" Text="--&gt;"/>
+                </TextBlock>
+                <TextBlock
+                    TextWrapping="Wrap"
+                    FontSize="20"
+                    FontWeight="Bold"
+                    VerticalAlignment="Center" Text="Restart Maschine"/>
+            </StackPanel>
+        </Border>
+
+        <!-- NEU: Back to Prediction Button, unten mittig -->
+        <Button x:Name="BackToPredictionButton"
+                Content="Back to Prediction"
+                Width="220"
+                Height="44"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,24"
+                Visibility="Collapsed"
+                Click="BackToPredictionButton_Click"/>
+
+        <!-- NEU: Fine Tuning Auswahl Popup -->
+        <Border x:Name="FineTuningSelectionPopup"
+                Background="#CCFFFFFF"
+                BorderBrush="Gray"
+                BorderThickness="2"
+                CornerRadius="10"
+                Padding="32"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Visibility="Collapsed"
+                Panel.ZIndex="100">
+            <StackPanel>
+                <TextBlock Text="Fine Tuning für:" FontSize="22" FontWeight="Bold" Margin="0,0,0,16" TextAlignment="Center"/>
+                <Button x:Name="ExistingPersonButton" Content="Vorhandene Person" Width="220" Height="44" Margin="0,0,0,12" Click="ExistingPersonButton_Click"/>
+                <Button x:Name="NewPersonButton" Content="Neue Person" Width="220" Height="44" Click="NewPersonButton_Click"/>
+            </StackPanel>
+        </Border>
+
+        <!-- NEU: Fine Tuning Button unten links -->
+        <Button x:Name="FineTuningButton"
+                Content="Fine Tuning"
+                Width="150"
+                Height="44"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="10,0,0,24"
+                Click="FineTuningButton_Click"/>
+        <ComboBox
+            Width="220"
+            Height="36"
+            ItemsSource="{Binding StrategyNames}"
+            SelectedIndex="{Binding SelectedStrategyIndex, Mode=TwoWay}"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="0,0,24,24"
+            ToolTip="Strategie wählen"/>
+        
+    </Grid>
+</Window>
