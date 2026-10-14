@@ -1,6 +1,6 @@
 # WaveLogic - Prototype Speech Recognition
 
-WaveLogic is a solution for speech recognition of simple commands (digits 1-9). The Program is implemented in C#
+WaveLogic is a solution for speech recognition of simple commands (digits 1-9) with the help of Fourier transformation. The Program is implemented in C#
 
 
 ## How It Works
